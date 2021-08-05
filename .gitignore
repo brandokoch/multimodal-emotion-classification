@@ -131,3 +131,5 @@ dmypy.json
 # Ignore custom
 data
 output
+runs
+wandb
