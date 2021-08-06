@@ -130,3 +130,9 @@ dmypy.json
 
 # Ignore data
 data
+
+#Ignore models
+models
+
+#Ignore cached models
+.vector_cache/
