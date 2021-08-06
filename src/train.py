@@ -35,7 +35,8 @@ class TrainingApp:
 
         try:
             model = model_dispatcher.models[config.MODEL]
-            loss_func = getattr(nn, config.LOSS)()
+            wandb.watch(model, log_freq=100)
+            loss_func = getattr(nn, config.LOSS)(weight=None)#config.CLASS_WEIGHTS.to(self.device))
             opt_func = getattr(optim, config.OPTIMIZER)
             cbs = callback_dispatcher.callbacks[config.MODEL]
         except Exception as e:

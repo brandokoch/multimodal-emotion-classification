@@ -1,19 +1,29 @@
 import os
+import torch
+import wandb
 
 # CONFIG
-RUN_NAME='test2'
-BATCH_SIZE=64
+RUN_NAME='test5'
+BATCH_SIZE=32
 WORKER_COUNT=12
-EPOCHS=1
+EPOCHS=20
 DATASET='audio'
-MODEL='baseline_audio_model_1'
+MODEL='baseline_audio_model_2'
 LOSS='CrossEntropyLoss'
 LR=1e-3
 OPTIMIZER='Adam'
 
+# CLASS_WEIGHTS=torch.tensor([1,2,2,2,2,2,2], dtype=torch.float32)
+# CLASS_WEIGHTS=torch.tensor([2,8,37,14,5,36,9], dtype=torch.float32)
+
+# audio metrics calculated on whole train (might be old)
+STD=torch.tensor(21.01, dtype=torch.float32)
+MEAN=torch.tensor(-64.38, dtype=torch.float32)
+
 # CONSTANTS
 DATA_FOLDER_PTH=os.path.join(os.path.dirname(__file__), os.pardir, 'data')
 RUNS_FOLDER_PTH=os.path.join(os.path.dirname(__file__), os.pardir, 'runs')
+CACHE_FOLDER_PTH=os.path.join(os.path.dirname(__file__), os.pardir, 'data','cache')
 
 TRAIN_AUDIO_FOLDER_PTH=os.path.join(DATA_FOLDER_PTH, 'processed','MELD','train_wavs')
 DEV_AUDIO_FOLDER_PTH=os.path.join(DATA_FOLDER_PTH, 'processed','MELD','dev_wavs')

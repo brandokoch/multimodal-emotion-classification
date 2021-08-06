@@ -1,5 +1,6 @@
-from models.audio_model import BaselineAudioModel_1
+from models.audio_model import BaselineAudioModel_1, BaselineAudioModel_2, BaselineAudioModel_3
 
 models={
     'baseline_audio_model_1': BaselineAudioModel_1(input_size=157),
+    'baseline_audio_model_2': BaselineAudioModel_2(),
 }

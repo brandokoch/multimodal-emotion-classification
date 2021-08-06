@@ -74,10 +74,12 @@ class TrackResult():
         # Log
         if self.learner.model.training:
             log.info(f"Epoch: {self.learner.epoch_idx} | Training | Loss: {avg_loss:.4f} | Accuracy {accuracy}")
+            log.info(f"\n Confusion matrix: \n {metrics.confusion_matrix(final_targets, final_predictions)}")
             wandb.log({'Acc/Train': accuracy, 'epoch': self.learner.epoch_idx})
         else:
 
             log.info(f"Epoch: {self.learner.epoch_idx} | Validation | Loss: {avg_loss:.4f} | Accuracy {accuracy}")
+            log.info(f"\n Confusion matrix: \n {metrics.confusion_matrix(final_targets, final_predictions)}")
             wandb.log({'Acc/Val': accuracy, 'epoch': self.learner.epoch_idx})
 
             # Tracking validation loss by epoch
