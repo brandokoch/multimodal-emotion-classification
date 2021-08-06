@@ -2,13 +2,13 @@ import os
 import torch
 import wandb
 
-# CONFIG
-RUN_NAME='test5'
+# RUN CONFIG
+RUN_NAME='test_text_model1'
 BATCH_SIZE=32
-WORKER_COUNT=12
-EPOCHS=20
-DATASET='audio'
-MODEL='baseline_audio_model_2'
+WORKER_COUNT=8
+EPOCHS=10
+DATASET='text'
+MODEL='baseline_text_model'
 LOSS='CrossEntropyLoss'
 LR=1e-3
 OPTIMIZER='Adam'
@@ -16,9 +16,12 @@ OPTIMIZER='Adam'
 # CLASS_WEIGHTS=torch.tensor([1,2,2,2,2,2,2], dtype=torch.float32)
 # CLASS_WEIGHTS=torch.tensor([2,8,37,14,5,36,9], dtype=torch.float32)
 
-# audio metrics calculated on whole train (might be old)
+# AUDIO CONFIG
 STD=torch.tensor(21.01, dtype=torch.float32)
 MEAN=torch.tensor(-64.38, dtype=torch.float32)
+
+# TEXT CONFIG
+TEXT_MAX_LENGTH=128
 
 # CONSTANTS
 DATA_FOLDER_PTH=os.path.join(os.path.dirname(__file__), os.pardir, 'data')

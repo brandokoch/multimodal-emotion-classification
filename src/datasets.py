@@ -4,18 +4,21 @@ from torch.utils.data import Dataset, DataLoader
 import glob
 import librosa
 import os
+import json
 import numpy as np
 import config
-from tqdm import tqdm
+import re
+import string
 import concurrent
+import io
+import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 
 def get_dataloaders(name):
     if name=='audio':
         return get_audio_dataloaders()
-
-
-    # if name=='text':
-    #     return get_text_dataloaders()
+    if name=='text':
+        return get_text_dataloaders()
     # if name=='multimodal':
     #     return get_multimodal_datalodaers()
 
@@ -116,10 +119,110 @@ def get_audio_dataloaders():
 
     return train_loader, val_loader
 
+
+class TextDataset(Dataset):
+    def __init__(self,texts,targets):
+        self.texts=texts
+        self.targets=targets
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self,idx):
+
+        text=self.texts[idx]
+        target=self.targets[idx]
+
+        text=torch.tensor(text,dtype=torch.long)
+        target=torch.tensor(target,dtype=torch.long)
+
+        item=(text,
+              target)
+
+        return item
+
+def get_text_dataloaders():
+        data=pd.read_csv(config.TRAIN_TEXT_FILE_PTH) # using only train set
+        data=data.sample(frac=1, random_state=42)
+
+        # Loading data
+        train=data[:7000]
+        xtrain=train['Utterance'].values.tolist()
+        ytrain=train['Sentiment'].values
+
+        val=data[7000:]
+        xval=val['Utterance'].values.tolist()
+        yval=val['Sentiment'].values
+
+        # Normalize texts
+        def normalize(string_list):
+            re_print=re.compile('[^%s]' % re.escape(string.printable))
+            normalized_string_list=[]
+            for string_item in string_list:
+                normalized_string=''.join([re_print.sub('',w) for w in string_item])
+                normalized_string_list.append(normalized_string)
+            return normalized_string_list
+
+        xtrain=normalize(xtrain)
+        xval=normalize(xval)
+
+        # Preprocessing
+        tokenizer=tf.keras.preprocessing.text.Tokenizer(num_words=3000, filters='"#$%&()*+-/:;<=>@[\\]^_`{|}~\t\n')
+        tokenizer.fit_on_texts(xtrain)
+
+        # tokenizer_json = tokenizer.to_json()
+        # pth=os.path.join(config.RUNS_FOLDER_PTH,config.RUN_NAME, config.MODEL+'_tok.json')
+        # with io.open(pth, 'w', encoding='utf-8') as f:
+        #     f.write(json.dumps(tokenizer_json, ensure_ascii=False))
+
+        xtrain_pro=tokenizer.texts_to_sequences(xtrain)
+        xtrain_pro=tf.keras.preprocessing.sequence.pad_sequences(xtrain_pro, maxlen=config.TEXT_MAX_LENGTH)
+
+        xval_pro=tokenizer.texts_to_sequences(xval)
+        xval_pro=tf.keras.preprocessing.sequence.pad_sequences(xval_pro, maxlen=config.TEXT_MAX_LENGTH)
+
+        def emotion_to_label(emotion):
+            if emotion=='neutral':
+                return 0
+            elif emotion=='positive':
+                return 1
+            elif emotion=='negative':
+                return 2
+
+        ytrain=[emotion_to_label(y) for y in ytrain]
+        yval=[emotion_to_label(y) for y in yval]
+
+        # Creating Datasets
+        train_ds=TextDataset(xtrain_pro, ytrain)
+        val_ds=TextDataset(xval_pro, yval)
+
+        # Creating DataLoaders
+        train_dl=torch.utils.data.DataLoader(
+                train_ds,
+                batch_size=config.BATCH_SIZE,
+                num_workers=config.WORKER_COUNT,
+                )
+
+        val_dl=torch.utils.data.DataLoader(
+                val_ds,
+                batch_size=config.BATCH_SIZE,
+                num_workers=config.WORKER_COUNT,
+                )
+
+        return train_dl, val_dl
+
+
 if __name__=='__main__':
-    print('UNIT TEST:')
-    train_loader, val_loader=get_audio_dataloaders()
-    print('\t Audio dataset X shape ',next(iter(train_loader))[0])
+    # print('AUDIO UNIT TEST:')
+    # train_loader, val_loader=get_audio_dataloaders()
+    # print('\t Audio dataset X shape ',next(iter(train_loader))[0])
+    # print('\t Audio dataset X shape ',next(iter(train_loader))[0].size())
+    # print('\t Audio dataset y shape', next(iter(train_loader))[1].size())
+    # print('Audio Unit test PASSED')
+
+    print('TEXT UNIT TEST:')
+    train_loader, val_loader=get_text_dataloaders()
+    # print('\t Audio dataset X shape ',next(iter(train_loader))[0])
     print('\t Audio dataset X shape ',next(iter(train_loader))[0].size())
     print('\t Audio dataset y shape', next(iter(train_loader))[1].size())
-    print('Audio Unit test PASSED')
+    print('Text Unit test PASSED')
