@@ -1,8 +1,7 @@
 import logging
 import logging.handlers
 import os
-
-import config
+import wandb
 
 
 root_logger = logging.getLogger()
@@ -22,8 +21,8 @@ c_format=logging.Formatter(logfmt_str)
 c_handler.setFormatter(c_format)
 
 # Create a file handler
-os.makedirs(os.path.join(config.RUNS_FOLDER_PTH,config.RUN_NAME), exist_ok=True)
-log_pth=os.path.join(config.RUNS_FOLDER_PTH,config.RUN_NAME,'log.txt')
+os.makedirs(os.path.join(wandb.config.RUNS_FOLDER_PTH,wandb.config.RUN_NAME), exist_ok=True)
+log_pth=os.path.join(wandb.config.RUNS_FOLDER_PTH,wandb.config.RUN_NAME,'log.txt')
 f_handler = logging.FileHandler(log_pth)
 f_handler.setLevel(logging.DEBUG)
 f_format=logging.Formatter(logfmt_str)

@@ -2,17 +2,12 @@ from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 import torch
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
-import glob
-import librosa
 import os
 import json
-import numpy as np
-import config
+import wandb
 import re
 import torchaudio
 import string
-import concurrent
-import io
 from torchaudio.functional import resample
 import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
@@ -24,104 +19,6 @@ def get_dataloaders(name):
         return get_text_dataloaders()
     if name=='multimodal':
         return get_multimodal_dataloaders()
-
-
-# class AudioDataset(Dataset):
-#     def __init__(self, pths, wav_to_label, max_length=15, sr=8000, recalculate=False):
-#         self.pths=pths
-#         self.wav_to_label=wav_to_label
-#         self.sr=sr
-#         self.max_length=max_length
-#         self.input_size=157 #fix this
-
-#         # cache
-#         if recalculate:
-#             executor=concurrent.futures.ProcessPoolExecutor(max_workers=10)
-#             futures=[executor.submit(self.preprocess_and_cache_file, pth) for pth in self.pths]
-#             concurrent.futures.wait(futures)
-
-
-#     def preprocess_and_cache_file(self,pth):
-#         sample, sample_rate=librosa.load(pth, sr=self.sr)
-#         short_samples=librosa.util.fix_length(sample, self.sr * self.max_length)
-#         melSpectrum=librosa.feature.melspectrogram(short_samples.astype(np.float16), sr=self.sr, n_mels=128)
-#         logMelSpectrum=librosa.power_to_db(melSpectrum, ref=np.max)
-#         label=self.wav_to_label[pth.split('\\')[-1]]
-
-#         cache_pth=os.path.join(config.CACHE_FOLDER_PTH, pth.split('\\')[-1].split('.')[0]+'.npy')
-#         np.save(cache_pth, (logMelSpectrum,label))
-
-
-#     def __len__(self):
-#         return len(self.pths)
-
-#     def __getitem__(self, idx):
-        
-#         cache_pth=os.path.join(config.CACHE_FOLDER_PTH, self.pths[idx].split('\\')[-1].split('.')[0]+'.npy')
-#         logMelSpectrum, label=np.load(cache_pth, allow_pickle=True)
-
-#         logMelSpectrum=torch.unsqueeze(torch.tensor(logMelSpectrum),0)
-#         label=torch.tensor(label,dtype=torch.long)
-
-#         # normalize 
-#         logMelSpectrum=(logMelSpectrum-config.MEAN)/config.STD
-
-#         return logMelSpectrum, label
-
-
-# def get_audio_dataloaders():
-#     # pths
-#     org_train_audio_pths=glob.glob(os.path.join(config.TRAIN_AUDIO_FOLDER_PTH, '*.wav'))
-
-#     # making train and dev out of org_train
-#     split_idx=int(len(org_train_audio_pths)*0.8)
-#     train_audio_pths=org_train_audio_pths[:split_idx]
-#     val_audio_pths=org_train_audio_pths[split_idx:]
-
-#     train_text=pd.read_csv(config.TRAIN_TEXT_FILE_PTH)
-
-#     def info_to_wav_name(dialogue_id, utterance_id):
-#         return 'dia{}_utt{}.wav'.format(dialogue_id, utterance_id)
-
-#     # def emotion_to_label(emotion):
-#     #     if emotion=='neutral':
-#     #         return 0
-#     #     elif emotion=='surprise':
-#     #         return 1
-#     #     elif emotion=='fear':
-#     #         return 2
-#     #     elif emotion=='sadness':
-#     #         return 3
-#     #     elif emotion=='joy':
-#     #         return 4
-#     #     elif emotion=='disgust':
-#     #         return 5
-#     #     elif emotion=='anger':
-#     #         return 6
-
-#     def emotion_to_label(emotion):
-#         if emotion=='neutral':
-#             return 0
-#         elif emotion=='positive':
-#             return 1
-#         elif emotion=='negative':
-#             return 2
-
-#     # train_text['wav_name']=train_text.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
-#     # train_text['label']=train_text.apply(lambda x: emotion_to_label(x['Emotion']), axis=1)
-
-#     train_text['wav_name']=train_text.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
-#     train_text['label']=train_text.apply(lambda x: emotion_to_label(x['Sentiment']), axis=1)
-
-#     wav_to_label=dict(zip(train_text['wav_name'], train_text['label']))
-
-#     train_ds=AudioDataset(train_audio_pths, wav_to_label)
-#     val_ds=AudioDataset(val_audio_pths, wav_to_label)
-
-#     train_loader=DataLoader(train_ds, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=config.WORKER_COUNT)
-#     val_loader=DataLoader(val_ds, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=config.WORKER_COUNT)
-
-#     return train_loader, val_loader
 
 class AudioDataset(Dataset):
     def __init__(self, df, folder_pth):
@@ -149,8 +46,8 @@ class AudioDataset(Dataset):
         return (waveform, label)
 
 def get_audio_dataloaders():
-    train_df=pd.read_csv(config.TRAIN_TEXT_FILE_PTH)[['Dialogue_ID','Utterance_ID','Sentiment']]
-    val_df=pd.read_csv(config.DEV_TEXT_FILE_PTH)[['Dialogue_ID','Utterance_ID','Sentiment']]
+    train_df=pd.read_csv(wandb.config.TRAIN_TEXT_FILE_PTH)[['Dialogue_ID','Utterance_ID','Sentiment']]
+    val_df=pd.read_csv(wandb.config.DEV_TEXT_FILE_PTH)[['Dialogue_ID','Utterance_ID','Sentiment']]
 
     def info_to_wav_name(dialogue_id, utterance_id):
         return 'dia{}_utt{}.wav'.format(dialogue_id, utterance_id)
@@ -177,8 +74,8 @@ def get_audio_dataloaders():
     # val_df=val_df[val_df['wav_name']!='dia23_utt13.wav']
 
 
-    train_ds=AudioDataset(train_df, config.TRAIN_AUDIO_FOLDER_PTH)
-    val_ds=AudioDataset(val_df, config.DEV_AUDIO_FOLDER_PTH)
+    train_ds=AudioDataset(train_df, wandb.config.TRAIN_AUDIO_FOLDER_PTH)
+    val_ds=AudioDataset(val_df, wandb.config.DEV_AUDIO_FOLDER_PTH)
 
     def pad_sequences(batch):
         batch=[item.t() for item in batch]
@@ -198,8 +95,8 @@ def get_audio_dataloaders():
         return tensors, targets
 
 
-    train_loader=DataLoader(train_ds, batch_size=config.BATCH_SIZE, collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=config.WORKER_COUNT)
-    val_loader=DataLoader(val_ds, batch_size=config.BATCH_SIZE,collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=config.WORKER_COUNT, drop_last=False)
+    train_loader=DataLoader(train_ds, batch_size=wandb.config.BATCH_SIZE, collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=wandb.config.WORKER_COUNT)
+    val_loader=DataLoader(val_ds, batch_size=wandb.config.BATCH_SIZE,collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=wandb.config.WORKER_COUNT, drop_last=False)
 
     return train_loader, val_loader
 
@@ -226,7 +123,7 @@ class TextDataset(Dataset):
         return item
 
 def get_text_dataloaders():
-        data=pd.read_csv(config.TRAIN_TEXT_FILE_PTH) # using only train set
+        data=pd.read_csv(wandb.config.TRAIN_TEXT_FILE_PTH) # using only train set
         data=data.sample(frac=1, random_state=42)
 
         # Loading data
@@ -251,19 +148,19 @@ def get_text_dataloaders():
         xval=normalize(xval)
 
         # Preprocessing
-        tokenizer=tf.keras.preprocessing.text.Tokenizer(num_words=config.VOCAB_SIZE, filters='"#$%&()*+-/:;<=>@[\\]^_`{|}~\t\n')
+        tokenizer=tf.keras.preprocessing.text.Tokenizer(num_words=wandb.config.VOCAB_SIZE, filters='"#$%&()*+-/:;<=>@[\\]^_`{|}~\t\n')
         tokenizer.fit_on_texts(xtrain)
 
         # tokenizer_json = tokenizer.to_json()
-        # pth=os.path.join(config.RUNS_FOLDER_PTH,config.RUN_NAME, config.MODEL+'_tok.json')
+        # pth=os.path.join(wandb.config.RUNS_FOLDER_PTH,wandb.config.RUN_NAME, wandb.config.MODEL+'_tok.json')
         # with io.open(pth, 'w', encoding='utf-8') as f:
         #     f.write(json.dumps(tokenizer_json, ensure_ascii=False))
 
         xtrain_pro=tokenizer.texts_to_sequences(xtrain)
-        xtrain_pro=tf.keras.preprocessing.sequence.pad_sequences(xtrain_pro, maxlen=config.TEXT_MAX_LENGTH)
+        xtrain_pro=tf.keras.preprocessing.sequence.pad_sequences(xtrain_pro, maxlen=wandb.config.TEXT_MAX_LENGTH)
 
         xval_pro=tokenizer.texts_to_sequences(xval)
-        xval_pro=tf.keras.preprocessing.sequence.pad_sequences(xval_pro, maxlen=config.TEXT_MAX_LENGTH)
+        xval_pro=tf.keras.preprocessing.sequence.pad_sequences(xval_pro, maxlen=wandb.config.TEXT_MAX_LENGTH)
 
         def emotion_to_label(emotion):
             if emotion=='neutral':
@@ -283,14 +180,14 @@ def get_text_dataloaders():
         # Creating DataLoaders
         train_dl=torch.utils.data.DataLoader(
                 train_ds,
-                batch_size=config.BATCH_SIZE,
-                num_workers=config.WORKER_COUNT,
+                batch_size=wandb.config.BATCH_SIZE,
+                num_workers=wandb.config.WORKER_COUNT,
                 )
 
         val_dl=torch.utils.data.DataLoader(
                 val_ds,
-                batch_size=config.BATCH_SIZE,
-                num_workers=config.WORKER_COUNT,
+                batch_size=wandb.config.BATCH_SIZE,
+                num_workers=wandb.config.WORKER_COUNT,
                 )
 
         return train_dl, val_dl
@@ -328,10 +225,10 @@ def get_multimodal_dataloaders():
         def info_to_wav_name(dialogue_id, utterance_id):
             return 'dia{}_utt{}.wav'.format(dialogue_id, utterance_id)
 
-        train_df=pd.read_csv(config.TRAIN_TEXT_FILE_PTH) 
+        train_df=pd.read_csv(wandb.config.TRAIN_TEXT_FILE_PTH) 
         train_df['wav_name']=train_df.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
 
-        val_df=pd.read_csv(config.DEV_TEXT_FILE_PTH) 
+        val_df=pd.read_csv(wandb.config.DEV_TEXT_FILE_PTH) 
         val_df['wav_name']=val_df.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
 
         # drop row where wav_name is dia125_utt3.wav (WARNING) 
@@ -360,23 +257,23 @@ def get_multimodal_dataloaders():
         xval=normalize(xval)
 
         # Preprocessing
-        tokenizer=tf.keras.preprocessing.text.Tokenizer(num_words=config.VOCAB_SIZE, filters='"#$%&()*+-/:;<=>@[\\]^_`{|}~\t\n')
+        tokenizer=tf.keras.preprocessing.text.Tokenizer(num_words=wandb.config.VOCAB_SIZE, filters='"#$%&()*+-/:;<=>@[\\]^_`{|}~\t\n')
         tokenizer.fit_on_texts(xtrain)
 
         # Save word index
-        with open(os.path.join(config.RUNS_FOLDER_PTH, config.RUN_NAME, 'word_index.json'), 'w') as f:
+        with open(os.path.join(wandb.config.RUNS_FOLDER_PTH, wandb.config.RUN_NAME, 'word_index.json'), 'w') as f:
             json.dump(tokenizer.word_index, f)
 
         # tokenizer_json = tokenizer.to_json()
-        # pth=os.path.join(config.RUNS_FOLDER_PTH,config.RUN_NAME, config.MODEL+'_tok.json')
+        # pth=os.path.join(wandb.config.RUNS_FOLDER_PTH,wandb.config.RUN_NAME, wandb.config.MODEL+'_tok.json')
         # with io.open(pth, 'w', encoding='utf-8') as f:
         #     f.write(json.dumps(tokenizer_json, ensure_ascii=False))
 
         xtrain_pro=tokenizer.texts_to_sequences(xtrain)
-        xtrain_pro=tf.keras.preprocessing.sequence.pad_sequences(xtrain_pro, maxlen=config.TEXT_MAX_LENGTH)
+        xtrain_pro=tf.keras.preprocessing.sequence.pad_sequences(xtrain_pro, maxlen=wandb.config.TEXT_MAX_LENGTH)
 
         xval_pro=tokenizer.texts_to_sequences(xval)
-        xval_pro=tf.keras.preprocessing.sequence.pad_sequences(xval_pro, maxlen=config.TEXT_MAX_LENGTH)
+        xval_pro=tf.keras.preprocessing.sequence.pad_sequences(xval_pro, maxlen=wandb.config.TEXT_MAX_LENGTH)
 
         def emotion_to_label(emotion):
             if emotion=='neutral':
@@ -390,8 +287,8 @@ def get_multimodal_dataloaders():
         yval=[emotion_to_label(y) for y in yval]
 
         # Creating Datasets
-        train_ds=MultimodalDataset(xtrain_pro, ytrain, pths_train, config.TRAIN_AUDIO_FOLDER_PTH)
-        val_ds=MultimodalDataset(xval_pro, yval, pths_val, config.DEV_AUDIO_FOLDER_PTH)
+        train_ds=MultimodalDataset(xtrain_pro, ytrain, pths_train, wandb.config.TRAIN_AUDIO_FOLDER_PTH)
+        val_ds=MultimodalDataset(xval_pro, yval, pths_val, wandb.config.DEV_AUDIO_FOLDER_PTH)
 
         # Creating DataLoaders
         def pad_sequences(batch):
@@ -414,8 +311,8 @@ def get_multimodal_dataloaders():
             return (texts, waveforms), targets
 
 
-        train_loader=DataLoader(train_ds, batch_size=config.BATCH_SIZE, collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=config.WORKER_COUNT)
-        val_loader=DataLoader(val_ds, batch_size=config.BATCH_SIZE,collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=config.WORKER_COUNT, drop_last=False)
+        train_loader=DataLoader(train_ds, batch_size=wandb.config.BATCH_SIZE, collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=wandb.config.WORKER_COUNT)
+        val_loader=DataLoader(val_ds, batch_size=wandb.config.BATCH_SIZE,collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=wandb.config.WORKER_COUNT, drop_last=False)
 
         return train_loader, val_loader
 

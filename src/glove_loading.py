@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 import config
 import re
+import wandb
 import string
 
 
@@ -19,11 +20,11 @@ class GloveWeightsLoading:
         return embedding_matrix
 
     def getWeights(self):
-        glove = pd.read_csv(config.GLOVE_MODEL_PATH, sep=" ", quoting=3, header=None, index_col=0)
+        glove = pd.read_csv(wandb.config.GLOVE_MODEL_PATH, sep=" ", quoting=3, header=None, index_col=0)
         glove_embedding = {key: val.values for key, val in glove.T.items()}
         #print(glove_embedding['cat'])
 
-        data = pd.read_csv(config.TRAIN_TEXT_FILE_PTH)
+        data = pd.read_csv(wandb.config.TRAIN_TEXT_FILE_PTH)
         text = data['Utterance']
         #print(text)
 
@@ -43,7 +44,7 @@ class GloveWeightsLoading:
         tokenizer.fit_on_texts(text)
 
         text = tokenizer.texts_to_sequences(text)
-        text = tf.keras.preprocessing.sequence.pad_sequences(text, maxlen=config.TEXT_MAX_LENGTH)
+        text = tf.keras.preprocessing.sequence.pad_sequences(text, maxlen=wandb.config.TEXT_MAX_LENGTH)
         #print(f'Sample sentence tokenized: {text[0]}, shape: {text[0].shape}')
 
         embedding_matrix = self.create_embedding_matrix(tokenizer.word_index, embedding_dict=glove_embedding, dimension=100)

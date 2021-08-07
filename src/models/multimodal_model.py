@@ -40,8 +40,8 @@ class BaselineMultimodalModel(nn.Module):
         super(BaselineMultimodalModel, self).__init__()
 
         # Pretrained embedding loading
-        # tokenizer_word_index=json.load(open(os.path.join(config.RUNS_FOLDER_PTH, config.RUN_NAME, 'word_index.json'),'r'))
-        # embedding_dict = load_vectors(os.path.join(config.MODELS_FOLDER_PTH, 'crawl-300d-2M-subword.vec'))
+        # tokenizer_word_index=json.load(open(os.path.join(wandb.config.RUNS_FOLDER_PTH, wandb.config.RUN_NAME, 'word_index.json'),'r'))
+        # embedding_dict = load_vectors(os.path.join(wandb.config.MODELS_FOLDER_PTH, 'crawl-300d-2M-subword.vec'))
         # embedding_matrix=create_embedding_matrix(tokenizer_word_index, embedding_dict)
         # num_words=embedding_matrix.shape[0]
         # embed_dim=embedding_matrix.shape[1]

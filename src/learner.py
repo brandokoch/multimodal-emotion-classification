@@ -1,6 +1,6 @@
 import torch
 from utils.custom_enumerator import enumerateWithEstimate
-import config
+import wandb
 
 def noop(*a, **k):
     return None
@@ -51,7 +51,7 @@ class Learner:
         self.opt=self.opt_func(self.model.parameters(), lr=self.lr, weight_decay=self.wd)
         if self.scheduler_func is not None:
             steps_per_epoch=len(self.train_dl)
-            self.sched=self.scheduler_func(self.opt, max_lr=config.SCHEDULER_MAX_LR, epochs=config.EPOCHS, steps_per_epoch=steps_per_epoch)
+            self.sched=self.scheduler_func(self.opt, max_lr=wandb.config.SCHEDULER_MAX_LR, epochs=wandb.config.EPOCHS, steps_per_epoch=steps_per_epoch)
 
         self.n_epochs=n_epochs
 
