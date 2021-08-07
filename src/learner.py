@@ -44,7 +44,7 @@ class Learner:
 
     def fit(self, n_epochs):
         self('before_fit')
-        self.opt=self.opt_func(self.model.parameters(), self.lr)
+        self.opt=self.opt_func(self.model.parameters())#, self.lr, weight_decay = 0.00001)
         self.n_epochs=n_epochs
 
         for self.epoch_idx in enumerateWithEstimate(range(n_epochs), desc_str="Training status"):
