@@ -38,13 +38,14 @@ class TrainingApp:
             wandb.watch(model, log_freq=100)
             loss_func = getattr(nn, config.LOSS)(weight=None)#config.CLASS_WEIGHTS.to(self.device))
             opt_func = getattr(optim, config.OPTIMIZER)
-            cbs = callback_dispatcher.callbacks[config.MODEL]
+            scheduler_func=getattr(optim.lr_scheduler, config.SCHEDULER)
+            cbs = callback_dispatcher.callbacks[config.CBS]
         except Exception as e:
             log.error(
-                "Exception occured: Configuration is invalid, check the README", exc_info=True)
+                "Exception occurred: Configuration is invalid, check the README", exc_info=True)
 
         learner = Learner(model, train_dl, val_dl, loss_func,
-                          config.LR, cbs, opt_func)
+                          config.LR, config.WEIGHT_DECAY, cbs, opt_func, scheduler_func)
         learner.fit(config.EPOCHS)
         learner.save(os.path.join(config.RUNS_FOLDER_PTH,config.RUN_NAME, config.MODEL+'.pt'))
 

@@ -51,7 +51,9 @@ class TrackResult():
 
         # Tracking train loss by batch
         if self.learner.model.training:
+            lr= self.learner.sched.get_last_lr() #should be before batch WARNING
             wandb.log({'Loss/Train': loss, 'epoch': self.learner.epoch_idx, 'batch': self.learner.batch_idx})
+            wandb.log({'Lr': lr[0], 'epoch': self.learner.epoch_idx, 'batch': self.learner.batch_idx})
 
 
     def after_epoch(self):
@@ -70,17 +72,22 @@ class TrackResult():
         final_targets=torch.reshape(final_targets, (-1,)).numpy()
 
         accuracy = metrics.accuracy_score(final_targets, final_predictions)
+        f1_score= metrics.f1_score(final_targets, final_predictions, average='weighted')
 
         # Log
         if self.learner.model.training:
-            log.info(f"Epoch: {self.learner.epoch_idx} | Training | Loss: {avg_loss:.4f} | Accuracy {accuracy}")
+            log.info(f"Epoch: {self.learner.epoch_idx} | Training | Loss: {avg_loss:.4f} | f1: {f1_score}")
             log.info(f"\n Confusion matrix: \n {metrics.confusion_matrix(final_targets, final_predictions)}")
             wandb.log({'Acc/Train': accuracy, 'epoch': self.learner.epoch_idx})
+            wandb.log({'f1/Train': accuracy, 'epoch': self.learner.epoch_idx})
         else:
 
-            log.info(f"Epoch: {self.learner.epoch_idx} | Validation | Loss: {avg_loss:.4f} | Accuracy {accuracy}")
+            log.info(f"Epoch: {self.learner.epoch_idx} | Validation | Loss: {avg_loss:.4f} | f1: {f1_score}")
             log.info(f"\n Confusion matrix: \n {metrics.confusion_matrix(final_targets, final_predictions)}")
             wandb.log({'Acc/Val': accuracy, 'epoch': self.learner.epoch_idx})
+            wandb.log({'f1/Val': accuracy, 'epoch': self.learner.epoch_idx})
+
+
 
             # Tracking validation loss by epoch
             wandb.log({'Loss/Val': avg_loss, 'epoch': self.learner.epoch_idx})

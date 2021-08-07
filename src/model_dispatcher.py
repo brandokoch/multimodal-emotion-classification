@@ -4,5 +4,6 @@ from models.text_model import BaselineTextModel
 models={
     'baseline_audio_model_1': BaselineAudioModel_1(input_size=157),
     'baseline_audio_model_2': BaselineAudioModel_2(),
+    'baseline_audio_model_3': BaselineAudioModel_3(),
     'baseline_text_model': BaselineTextModel(),
 }

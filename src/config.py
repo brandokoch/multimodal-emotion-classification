@@ -3,15 +3,22 @@ import torch
 import wandb
 
 # RUN CONFIG
-RUN_NAME='test_text_model1'
-BATCH_SIZE=32
-WORKER_COUNT=8
-EPOCHS=10
-DATASET='text'
-MODEL='baseline_text_model'
+RUN_NAME='test_audio_model3'
+BATCH_SIZE=256
+WORKER_COUNT=0
+EPOCHS=25
+DATASET='audio'
+MODEL='baseline_audio_model_3'
+CBS='default'
 LOSS='CrossEntropyLoss'
-LR=1e-3
+
 OPTIMIZER='Adam'
+WEIGHT_DECAY=0.0001
+LR=1e-6
+
+SCHEDULER='OneCycleLR'
+SCHEDULER_MAX_LR=0.0005
+
 
 # CLASS_WEIGHTS=torch.tensor([1,2,2,2,2,2,2], dtype=torch.float32)
 # CLASS_WEIGHTS=torch.tensor([2,8,37,14,5,36,9], dtype=torch.float32)

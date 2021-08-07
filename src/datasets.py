@@ -1,3 +1,4 @@
+from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 import torch
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
@@ -8,9 +9,11 @@ import json
 import numpy as np
 import config
 import re
+import torchaudio
 import string
 import concurrent
 import io
+from torchaudio.functional import resample
 import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 
@@ -23,77 +26,134 @@ def get_dataloaders(name):
     #     return get_multimodal_datalodaers()
 
 
+# class AudioDataset(Dataset):
+#     def __init__(self, pths, wav_to_label, max_length=15, sr=8000, recalculate=False):
+#         self.pths=pths
+#         self.wav_to_label=wav_to_label
+#         self.sr=sr
+#         self.max_length=max_length
+#         self.input_size=157 #fix this
+
+#         # cache
+#         if recalculate:
+#             executor=concurrent.futures.ProcessPoolExecutor(max_workers=10)
+#             futures=[executor.submit(self.preprocess_and_cache_file, pth) for pth in self.pths]
+#             concurrent.futures.wait(futures)
+
+
+#     def preprocess_and_cache_file(self,pth):
+#         sample, sample_rate=librosa.load(pth, sr=self.sr)
+#         short_samples=librosa.util.fix_length(sample, self.sr * self.max_length)
+#         melSpectrum=librosa.feature.melspectrogram(short_samples.astype(np.float16), sr=self.sr, n_mels=128)
+#         logMelSpectrum=librosa.power_to_db(melSpectrum, ref=np.max)
+#         label=self.wav_to_label[pth.split('\\')[-1]]
+
+#         cache_pth=os.path.join(config.CACHE_FOLDER_PTH, pth.split('\\')[-1].split('.')[0]+'.npy')
+#         np.save(cache_pth, (logMelSpectrum,label))
+
+
+#     def __len__(self):
+#         return len(self.pths)
+
+#     def __getitem__(self, idx):
+        
+#         cache_pth=os.path.join(config.CACHE_FOLDER_PTH, self.pths[idx].split('\\')[-1].split('.')[0]+'.npy')
+#         logMelSpectrum, label=np.load(cache_pth, allow_pickle=True)
+
+#         logMelSpectrum=torch.unsqueeze(torch.tensor(logMelSpectrum),0)
+#         label=torch.tensor(label,dtype=torch.long)
+
+#         # normalize 
+#         logMelSpectrum=(logMelSpectrum-config.MEAN)/config.STD
+
+#         return logMelSpectrum, label
+
+
+# def get_audio_dataloaders():
+#     # pths
+#     org_train_audio_pths=glob.glob(os.path.join(config.TRAIN_AUDIO_FOLDER_PTH, '*.wav'))
+
+#     # making train and dev out of org_train
+#     split_idx=int(len(org_train_audio_pths)*0.8)
+#     train_audio_pths=org_train_audio_pths[:split_idx]
+#     val_audio_pths=org_train_audio_pths[split_idx:]
+
+#     train_text=pd.read_csv(config.TRAIN_TEXT_FILE_PTH)
+
+#     def info_to_wav_name(dialogue_id, utterance_id):
+#         return 'dia{}_utt{}.wav'.format(dialogue_id, utterance_id)
+
+#     # def emotion_to_label(emotion):
+#     #     if emotion=='neutral':
+#     #         return 0
+#     #     elif emotion=='surprise':
+#     #         return 1
+#     #     elif emotion=='fear':
+#     #         return 2
+#     #     elif emotion=='sadness':
+#     #         return 3
+#     #     elif emotion=='joy':
+#     #         return 4
+#     #     elif emotion=='disgust':
+#     #         return 5
+#     #     elif emotion=='anger':
+#     #         return 6
+
+#     def emotion_to_label(emotion):
+#         if emotion=='neutral':
+#             return 0
+#         elif emotion=='positive':
+#             return 1
+#         elif emotion=='negative':
+#             return 2
+
+#     # train_text['wav_name']=train_text.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
+#     # train_text['label']=train_text.apply(lambda x: emotion_to_label(x['Emotion']), axis=1)
+
+#     train_text['wav_name']=train_text.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
+#     train_text['label']=train_text.apply(lambda x: emotion_to_label(x['Sentiment']), axis=1)
+
+#     wav_to_label=dict(zip(train_text['wav_name'], train_text['label']))
+
+#     train_ds=AudioDataset(train_audio_pths, wav_to_label)
+#     val_ds=AudioDataset(val_audio_pths, wav_to_label)
+
+#     train_loader=DataLoader(train_ds, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=config.WORKER_COUNT)
+#     val_loader=DataLoader(val_ds, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=config.WORKER_COUNT)
+
+#     return train_loader, val_loader
+
 class AudioDataset(Dataset):
-    def __init__(self, pths, wav_to_label, max_length=15, sr=8000, recalculate=False):
-        self.pths=pths
-        self.wav_to_label=wav_to_label
-        self.sr=sr
-        self.max_length=max_length
-        self.input_size=157 #fix this
-
-        # cache
-        if recalculate:
-            executor=concurrent.futures.ProcessPoolExecutor(max_workers=10)
-            futures=[executor.submit(self.preprocess_and_cache_file, pth) for pth in self.pths]
-            concurrent.futures.wait(futures)
-
-
-    def preprocess_and_cache_file(self,pth):
-        sample, sample_rate=librosa.load(pth, sr=self.sr)
-        short_samples=librosa.util.fix_length(sample, self.sr * self.max_length)
-        melSpectrum=librosa.feature.melspectrogram(short_samples.astype(np.float16), sr=self.sr, n_mels=128)
-        logMelSpectrum=librosa.power_to_db(melSpectrum, ref=np.max)
-        label=self.wav_to_label[pth.split('\\')[-1]]
-
-        cache_pth=os.path.join(config.CACHE_FOLDER_PTH, pth.split('\\')[-1].split('.')[0]+'.npy')
-        np.save(cache_pth, (logMelSpectrum,label))
-
+    def __init__(self, df, folder_pth):
+        self.df=df
+        self.pths=df.wav_name.values
+        self.folder_pth=folder_pth
+        self.labels=df.label.values
 
     def __len__(self):
         return len(self.pths)
 
     def __getitem__(self, idx):
-        
-        cache_pth=os.path.join(config.CACHE_FOLDER_PTH, self.pths[idx].split('\\')[-1].split('.')[0]+'.npy')
-        logMelSpectrum, label=np.load(cache_pth, allow_pickle=True)
+        waveform, sr=torchaudio.load(os.path.join(self.folder_pth,self.pths[idx]))
+        label=self.labels[idx]
 
-        logMelSpectrum=torch.unsqueeze(torch.tensor(logMelSpectrum),0)
-        label=torch.tensor(label,dtype=torch.long)
+        # To mono
+        waveform=torch.mean(waveform, dim=0).unsqueeze(0)
 
-        # normalize 
-        logMelSpectrum=(logMelSpectrum-config.MEAN)/config.STD
+        # Resample        
+        waveform=resample(waveform,orig_freq=sr, new_freq=8000)
 
-        return logMelSpectrum, label
+        # To tensors
+        label=torch.tensor(label, dtype= torch.long)
+
+        return (waveform, label)
 
 def get_audio_dataloaders():
-    # pths
-    org_train_audio_pths=glob.glob(os.path.join(config.TRAIN_AUDIO_FOLDER_PTH, '*.wav'))
-
-    # making train and dev out of org_train
-    split_idx=int(len(org_train_audio_pths)*0.8)
-    train_audio_pths=org_train_audio_pths[:split_idx]
-    val_audio_pths=org_train_audio_pths[split_idx:]
-
-    train_text=pd.read_csv(config.TRAIN_TEXT_FILE_PTH)
+    train_df=pd.read_csv(config.TRAIN_TEXT_FILE_PTH)[['Dialogue_ID','Utterance_ID','Sentiment']]
+    val_df=pd.read_csv(config.DEV_TEXT_FILE_PTH)[['Dialogue_ID','Utterance_ID','Sentiment']]
 
     def info_to_wav_name(dialogue_id, utterance_id):
         return 'dia{}_utt{}.wav'.format(dialogue_id, utterance_id)
-
-    # def emotion_to_label(emotion):
-    #     if emotion=='neutral':
-    #         return 0
-    #     elif emotion=='surprise':
-    #         return 1
-    #     elif emotion=='fear':
-    #         return 2
-    #     elif emotion=='sadness':
-    #         return 3
-    #     elif emotion=='joy':
-    #         return 4
-    #     elif emotion=='disgust':
-    #         return 5
-    #     elif emotion=='anger':
-    #         return 6
 
     def emotion_to_label(emotion):
         if emotion=='neutral':
@@ -103,19 +163,43 @@ def get_audio_dataloaders():
         elif emotion=='negative':
             return 2
 
-    # train_text['wav_name']=train_text.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
-    # train_text['label']=train_text.apply(lambda x: emotion_to_label(x['Emotion']), axis=1)
+    train_df['wav_name']=train_df.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
+    train_df['label']=train_df.apply(lambda x: emotion_to_label(x['Sentiment']), axis=1)
+    train_df=train_df[['wav_name','label']]
 
-    train_text['wav_name']=train_text.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
-    train_text['label']=train_text.apply(lambda x: emotion_to_label(x['Sentiment']), axis=1)
+    val_df['wav_name']=val_df.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
+    val_df['label']=val_df.apply(lambda x: emotion_to_label(x['Sentiment']), axis=1)
+    val_df=val_df[['wav_name','label']]
 
-    wav_to_label=dict(zip(train_text['wav_name'], train_text['label']))
+    # drop row where wav_name is dia125_utt3.wav (WARNING) 
+    train_df=train_df[train_df['wav_name']!='dia125_utt3.wav']
+    val_df=val_df[val_df['wav_name']!='dia110_utt7.wav']
+    # val_df=val_df[val_df['wav_name']!='dia23_utt13.wav']
 
-    train_ds=AudioDataset(train_audio_pths, wav_to_label)
-    val_ds=AudioDataset(val_audio_pths, wav_to_label)
 
-    train_loader=DataLoader(train_ds, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=config.WORKER_COUNT)
-    val_loader=DataLoader(val_ds, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=config.WORKER_COUNT)
+    train_ds=AudioDataset(train_df, config.TRAIN_AUDIO_FOLDER_PTH)
+    val_ds=AudioDataset(val_df, config.DEV_AUDIO_FOLDER_PTH)
+
+    def pad_sequences(batch):
+        batch=[item.t() for item in batch]
+        batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0.)
+        return batch.permute(0,2,1)
+
+    def collate_fn(batch):
+        
+        tensors, targets=[], []
+        for waveform, label in batch:
+            tensors+=[waveform]
+            targets+=[label]
+        
+        tensors=pad_sequences(tensors)
+        targets=torch.stack(targets)
+
+        return tensors, targets
+
+
+    train_loader=DataLoader(train_ds, batch_size=config.BATCH_SIZE, collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=config.WORKER_COUNT)
+    val_loader=DataLoader(val_ds, batch_size=config.BATCH_SIZE,collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=config.WORKER_COUNT, drop_last=False)
 
     return train_loader, val_loader
 
@@ -213,16 +297,16 @@ def get_text_dataloaders():
 
 
 if __name__=='__main__':
-    # print('AUDIO UNIT TEST:')
-    # train_loader, val_loader=get_audio_dataloaders()
-    # print('\t Audio dataset X shape ',next(iter(train_loader))[0])
-    # print('\t Audio dataset X shape ',next(iter(train_loader))[0].size())
-    # print('\t Audio dataset y shape', next(iter(train_loader))[1].size())
-    # print('Audio Unit test PASSED')
-
-    print('TEXT UNIT TEST:')
-    train_loader, val_loader=get_text_dataloaders()
-    # print('\t Audio dataset X shape ',next(iter(train_loader))[0])
+    print('AUDIO UNIT TEST:')
+    train_loader, val_loader=get_audio_dataloaders()
+    print('\t Audio dataset X shape ',next(iter(train_loader))[0])
     print('\t Audio dataset X shape ',next(iter(train_loader))[0].size())
     print('\t Audio dataset y shape', next(iter(train_loader))[1].size())
-    print('Text Unit test PASSED')
+    print('Audio Unit test PASSED')
+
+    # print('TEXT UNIT TEST:')
+    # train_loader, val_loader=get_text_dataloaders()
+    # # print('\t Audio dataset X shape ',next(iter(train_loader))[0])
+    # print('\t Audio dataset X shape ',next(iter(train_loader))[0].size())
+    # print('\t Audio dataset y shape', next(iter(train_loader))[1].size())
+    # print('Text Unit test PASSED')

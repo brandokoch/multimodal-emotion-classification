@@ -1,18 +1,21 @@
 import torch
 from utils.custom_enumerator import enumerateWithEstimate
+import config
 
 def noop(*a, **k):
     return None
 
 class Learner:
-    def __init__(self, model, train_dl, val_dl, loss_func, lr, cbs, opt_func):
+    def __init__(self, model, train_dl, val_dl, loss_func, lr, wd, cbs, opt_func, scheduler_func=None):
         self.model=model
         self.train_dl=train_dl
         self.val_dl=val_dl
         self.loss_func=loss_func
         self.lr=lr
+        self.wd=wd
         self.cbs=cbs
         self.opt_func=opt_func
+        self.scheduler_func=scheduler_func
 
         for cb in cbs: 
             cb.learner=self
@@ -26,6 +29,7 @@ class Learner:
             self.opt.zero_grad()
             self.loss.backward()
             self.opt.step()
+            self.sched.step()
         self('after_batch')
         
     def one_epoch(self, is_train):
@@ -44,7 +48,11 @@ class Learner:
 
     def fit(self, n_epochs):
         self('before_fit')
-        self.opt=self.opt_func(self.model.parameters(), self.lr)
+        self.opt=self.opt_func(self.model.parameters(), lr=self.lr, weight_decay=self.wd)
+        if self.scheduler_func is not None:
+            steps_per_epoch=len(self.train_dl)
+            self.sched=self.scheduler_func(self.opt, max_lr=config.SCHEDULER_MAX_LR, epochs=config.EPOCHS, steps_per_epoch=steps_per_epoch)
+
         self.n_epochs=n_epochs
 
         for self.epoch_idx in enumerateWithEstimate(range(n_epochs), desc_str="Training status"):
