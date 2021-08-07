@@ -6,12 +6,12 @@ import wandb
 RUN_NAME='test_text_model1'
 BATCH_SIZE=32
 WORKER_COUNT=0
-EPOCHS=32
+EPOCHS=60
 DATASET='text'
 MODEL='baseline_text_model'
 LOSS='CrossEntropyLoss'
-LR=0.0001
-OPTIMIZER='Adadelta'
+LR=1e-3
+OPTIMIZER='Adagrad'
 
 # CLASS_WEIGHTS=torch.tensor([1,2,2,2,2,2,2], dtype=torch.float32)
 # CLASS_WEIGHTS=torch.tensor([2,8,37,14,5,36,9], dtype=torch.float32)

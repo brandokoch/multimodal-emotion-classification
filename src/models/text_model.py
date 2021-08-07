@@ -19,14 +19,15 @@ class BaselineTextModel(nn.Module):
 
         self.dropout = nn.Dropout(0.25)
 
-        self.rnn = nn.LSTM(input_size = embeddin_dim, hidden_size = n_hidden)#, bidirectional=True)
+        self.rnn = nn.LSTM(input_size = embeddin_dim, hidden_size = n_hidden, num_layers=2, bidirectional=True)
 
-        self.linear = nn.Linear(n_hidden * 2, 3)
-        # self.relu = nn.ReLU()
-        # self.classify = nn.Linear(n_hidden, 3)
+        self.linear = nn.Linear(n_hidden * 4, n_hidden)
+        self.relu = nn.ReLU()
+        self.classify = nn.Linear(n_hidden, 3)
 
     def forward(self, x):
         x = self.embedding(x)
+        x = self.dropout(x)
 
         x, _ = self.rnn(x)
         x = self.dropout(x)
@@ -43,12 +44,11 @@ class BaselineTextModel(nn.Module):
         #out = self.linear(x[:,-1,:])
 
 
+        out = self.relu(out)
+        out = self.dropout(out)
 
-        # out = self.relu(out)
-        # out = self.dropout(out)
-        #
-        #
-        # out = self.classify(out)
+
+        out = self.classify(out)
 
         # We dont apply sigmoid to output since nn.BCEWithLogitsLoss
         # combines a Sigmoid layer and the BCELoss
