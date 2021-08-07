@@ -22,8 +22,8 @@ def get_dataloaders(name):
         return get_audio_dataloaders()
     if name=='text':
         return get_text_dataloaders()
-    # if name=='multimodal':
-    #     return get_multimodal_datalodaers()
+    if name=='multimodal':
+        return get_multimodal_dataloaders()
 
 
 # class AudioDataset(Dataset):
@@ -251,7 +251,7 @@ def get_text_dataloaders():
         xval=normalize(xval)
 
         # Preprocessing
-        tokenizer=tf.keras.preprocessing.text.Tokenizer(num_words=3000, filters='"#$%&()*+-/:;<=>@[\\]^_`{|}~\t\n')
+        tokenizer=tf.keras.preprocessing.text.Tokenizer(num_words=config.VOCAB_SIZE, filters='"#$%&()*+-/:;<=>@[\\]^_`{|}~\t\n')
         tokenizer.fit_on_texts(xtrain)
 
         # tokenizer_json = tokenizer.to_json()
@@ -296,17 +296,148 @@ def get_text_dataloaders():
         return train_dl, val_dl
 
 
+class MultimodalDataset(Dataset):
+    def __init__(self,texts,targets, pths, folder_pth):
+        self.texts=texts
+        self.targets=targets
+        self.pths=pths
+        self.folder_pth=folder_pth
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self,idx):
+
+        text=self.texts[idx]
+        target=self.targets[idx]
+        waveform, sr=torchaudio.load(os.path.join(self.folder_pth,self.pths[idx]))
+
+        # Preprocess audio
+        waveform=torch.mean(waveform, dim=0).unsqueeze(0)
+        waveform=resample(waveform,orig_freq=sr, new_freq=8000)
+
+        # To tensors
+        text=torch.tensor(text,dtype=torch.long)
+        target=torch.tensor(target,dtype=torch.long)
+
+        item=((text, waveform), target)
+        return item
+
+def get_multimodal_dataloaders():
+
+        def info_to_wav_name(dialogue_id, utterance_id):
+            return 'dia{}_utt{}.wav'.format(dialogue_id, utterance_id)
+
+        train_df=pd.read_csv(config.TRAIN_TEXT_FILE_PTH) 
+        train_df['wav_name']=train_df.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
+
+        val_df=pd.read_csv(config.DEV_TEXT_FILE_PTH) 
+        val_df['wav_name']=val_df.apply(lambda x: info_to_wav_name(x['Dialogue_ID'], x['Utterance_ID']), axis=1)
+
+        # drop row where wav_name is dia125_utt3.wav (WARNING) 
+        train_df=train_df[train_df['wav_name']!='dia125_utt3.wav']
+        val_df=val_df[val_df['wav_name']!='dia110_utt7.wav']
+
+        # Loading data
+        xtrain=train_df['Utterance'].values.tolist()
+        ytrain=train_df['Sentiment'].values
+        pths_train=train_df['wav_name'].values
+
+        xval=val_df['Utterance'].values.tolist()
+        yval=val_df['Sentiment'].values
+        pths_val=val_df['wav_name'].values
+
+        # Normalize texts
+        def normalize(string_list):
+            re_print=re.compile('[^%s]' % re.escape(string.printable))
+            normalized_string_list=[]
+            for string_item in string_list:
+                normalized_string=''.join([re_print.sub('',w) for w in string_item.lower()])
+                normalized_string_list.append(normalized_string)
+            return normalized_string_list
+
+        xtrain=normalize(xtrain)
+        xval=normalize(xval)
+
+        # Preprocessing
+        tokenizer=tf.keras.preprocessing.text.Tokenizer(num_words=config.VOCAB_SIZE, filters='"#$%&()*+-/:;<=>@[\\]^_`{|}~\t\n')
+        tokenizer.fit_on_texts(xtrain)
+
+        # Save word index
+        with open(os.path.join(config.RUNS_FOLDER_PTH, config.RUN_NAME, 'word_index.json'), 'w') as f:
+            json.dump(tokenizer.word_index, f)
+
+        # tokenizer_json = tokenizer.to_json()
+        # pth=os.path.join(config.RUNS_FOLDER_PTH,config.RUN_NAME, config.MODEL+'_tok.json')
+        # with io.open(pth, 'w', encoding='utf-8') as f:
+        #     f.write(json.dumps(tokenizer_json, ensure_ascii=False))
+
+        xtrain_pro=tokenizer.texts_to_sequences(xtrain)
+        xtrain_pro=tf.keras.preprocessing.sequence.pad_sequences(xtrain_pro, maxlen=config.TEXT_MAX_LENGTH)
+
+        xval_pro=tokenizer.texts_to_sequences(xval)
+        xval_pro=tf.keras.preprocessing.sequence.pad_sequences(xval_pro, maxlen=config.TEXT_MAX_LENGTH)
+
+        def emotion_to_label(emotion):
+            if emotion=='neutral':
+                return 0
+            elif emotion=='positive':
+                return 1
+            elif emotion=='negative':
+                return 2
+
+        ytrain=[emotion_to_label(y) for y in ytrain]
+        yval=[emotion_to_label(y) for y in yval]
+
+        # Creating Datasets
+        train_ds=MultimodalDataset(xtrain_pro, ytrain, pths_train, config.TRAIN_AUDIO_FOLDER_PTH)
+        val_ds=MultimodalDataset(xval_pro, yval, pths_val, config.DEV_AUDIO_FOLDER_PTH)
+
+        # Creating DataLoaders
+        def pad_sequences(batch):
+            batch=[item.t() for item in batch]
+            batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0.)
+            return batch.permute(0,2,1)
+
+        def collate_fn(batch):
+            
+            texts, waveforms, targets=[], [], []
+            for (text, waveform), label in batch:
+                texts+=[text]
+                waveforms+=[waveform]
+                targets+=[label]
+            
+            waveforms=pad_sequences(waveforms)
+            texts=torch.stack(texts)
+            targets=torch.stack(targets)
+
+            return (texts, waveforms), targets
+
+
+        train_loader=DataLoader(train_ds, batch_size=config.BATCH_SIZE, collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=config.WORKER_COUNT)
+        val_loader=DataLoader(val_ds, batch_size=config.BATCH_SIZE,collate_fn=collate_fn, pin_memory=True, shuffle=True, num_workers=config.WORKER_COUNT, drop_last=False)
+
+        return train_loader, val_loader
+
 if __name__=='__main__':
-    print('AUDIO UNIT TEST:')
-    train_loader, val_loader=get_audio_dataloaders()
-    print('\t Audio dataset X shape ',next(iter(train_loader))[0])
-    print('\t Audio dataset X shape ',next(iter(train_loader))[0].size())
-    print('\t Audio dataset y shape', next(iter(train_loader))[1].size())
-    print('Audio Unit test PASSED')
+    # print('AUDIO UNIT TEST:')
+    # train_loader, val_loader=get_audio_dataloaders()
+    # print('\t AUDIO dataset X shape ',next(iter(train_loader))[0])
+    # print('\t AUDIO dataset X shape ',next(iter(train_loader))[0].size())
+    # print('\t AUDIO dataset y shape', next(iter(train_loader))[1].size())
+    # print('AUDIO Unit test PASSED')
 
     # print('TEXT UNIT TEST:')
     # train_loader, val_loader=get_text_dataloaders()
-    # # print('\t Audio dataset X shape ',next(iter(train_loader))[0])
-    # print('\t Audio dataset X shape ',next(iter(train_loader))[0].size())
-    # print('\t Audio dataset y shape', next(iter(train_loader))[1].size())
+    # # print('\t TEXT dataset X shape ',next(iter(train_loader))[0])
+    # print('\t TEXT dataset X shape ',next(iter(train_loader))[0].size())
+    # print('\t TEXT dataset y shape', next(iter(train_loader))[1].size())
     # print('Text Unit test PASSED')
+
+    print('MULTIMODAL UNIT TEST:')
+    train_loader, val_loader=get_multimodal_dataloaders()
+    print('\t MULTIMODAL dataset sample',next(iter(train_loader))[0][0])
+    print('\t MULTIMODAL dataset Text shape ',next(iter(train_loader))[0][0].size())
+    print('\t MULTIMODAL dataset Waveform shape ',next(iter(train_loader))[0][1].size())
+    print('\t MULTIMODAL dataset y shape', next(iter(train_loader))[2].size())
+    print('MULTIMODAL Unit test PASSED')

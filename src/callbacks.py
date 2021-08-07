@@ -27,6 +27,23 @@ class MoveToGPUCallback():
             log.error(
                 "Exception occurred: Can't move the model to GPU", exc_info=True)
 
+class MultiModalMoveToGPUCallback():
+    def before_batch(self):
+        try:
+            self.learner.batch[0][0] = self.learner.batch[0][0].to('cuda')
+            self.learner.batch[0][1] = self.learner.batch[0][1].to('cuda')
+            self.learner.batch[1] = self.learner.batch[1].to('cuda')
+        except Exception as e:
+            log.error(
+                "Exception occurred: Can't move the batch to GPU", exc_info=True)
+
+    def before_fit(self):
+        try:
+            self.learner.model = self.learner.model.to('cuda')
+        except Exception as e:
+            log.error(
+                "Exception occurred: Can't move the model to GPU", exc_info=True)
+
 class TrackResult():
 
     def before_epoch(self):
@@ -79,13 +96,13 @@ class TrackResult():
             log.info(f"Epoch: {self.learner.epoch_idx} | Training | Loss: {avg_loss:.4f} | f1: {f1_score}")
             log.info(f"\n Confusion matrix: \n {metrics.confusion_matrix(final_targets, final_predictions)}")
             wandb.log({'Acc/Train': accuracy, 'epoch': self.learner.epoch_idx})
-            wandb.log({'f1/Train': accuracy, 'epoch': self.learner.epoch_idx})
+            wandb.log({'f1/Train': f1_score, 'epoch': self.learner.epoch_idx})
         else:
 
             log.info(f"Epoch: {self.learner.epoch_idx} | Validation | Loss: {avg_loss:.4f} | f1: {f1_score}")
             log.info(f"\n Confusion matrix: \n {metrics.confusion_matrix(final_targets, final_predictions)}")
             wandb.log({'Acc/Val': accuracy, 'epoch': self.learner.epoch_idx})
-            wandb.log({'f1/Val': accuracy, 'epoch': self.learner.epoch_idx})
+            wandb.log({'f1/Val': f1_score, 'epoch': self.learner.epoch_idx})
 
 
 

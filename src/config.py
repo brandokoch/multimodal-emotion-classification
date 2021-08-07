@@ -3,13 +3,13 @@ import torch
 import wandb
 
 # RUN CONFIG
-RUN_NAME='test_audio_model3'
+RUN_NAME='test_multimodal2'
 BATCH_SIZE=256
 WORKER_COUNT=0
-EPOCHS=25
-DATASET='audio'
-MODEL='baseline_audio_model_3'
-CBS='default'
+EPOCHS=50
+DATASET='multimodal'
+MODEL='baseline_multimodal_model'
+CBS='multimodal'
 LOSS='CrossEntropyLoss'
 
 OPTIMIZER='Adam'
@@ -17,7 +17,7 @@ WEIGHT_DECAY=0.0001
 LR=1e-6
 
 SCHEDULER='OneCycleLR'
-SCHEDULER_MAX_LR=0.0005
+SCHEDULER_MAX_LR=1e-3
 
 
 # CLASS_WEIGHTS=torch.tensor([1,2,2,2,2,2,2], dtype=torch.float32)
@@ -28,12 +28,15 @@ STD=torch.tensor(21.01, dtype=torch.float32)
 MEAN=torch.tensor(-64.38, dtype=torch.float32)
 
 # TEXT CONFIG
+VOCAB_SIZE=3000
 TEXT_MAX_LENGTH=128
 
 # CONSTANTS
 DATA_FOLDER_PTH=os.path.join(os.path.dirname(__file__), os.pardir, 'data')
 RUNS_FOLDER_PTH=os.path.join(os.path.dirname(__file__), os.pardir, 'runs')
 CACHE_FOLDER_PTH=os.path.join(os.path.dirname(__file__), os.pardir, 'data','cache')
+MODELS_FOLDER_PTH = os.path.join(os.path.dirname(__file__), os.pardir, 'models')
+GLOVE_MODEL_PATH = os.path.join(MODELS_FOLDER_PTH, 'glove.6B.100d.txt')
 
 TRAIN_AUDIO_FOLDER_PTH=os.path.join(DATA_FOLDER_PTH, 'processed','MELD','train_wavs')
 DEV_AUDIO_FOLDER_PTH=os.path.join(DATA_FOLDER_PTH, 'processed','MELD','dev_wavs')
