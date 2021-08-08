@@ -3,12 +3,12 @@ import torch
 import wandb
 
 # RUN CONFIG
-RUN_NAME='test_text_model1'
+RUN_NAME='text7_transformer_1head_2layer'
 BATCH_SIZE=32
 WORKER_COUNT=0
 EPOCHS=60
 DATASET='text'
-MODEL='baseline_text_model'
+MODEL='transformer_text_model'
 LOSS='CrossEntropyLoss'
 LR=1e-3
 OPTIMIZER='Adagrad'

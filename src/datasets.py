@@ -148,11 +148,11 @@ def get_text_dataloaders():
         # Loading data
         train=data[:7000]
         xtrain=train['Utterance'].values.tolist()
-        ytrain=train['Sentiment'].values
+        ytrain=train['Emotion'].values
 
         val=data[7000:]
         xval=val['Utterance'].values.tolist()
-        yval=val['Sentiment'].values
+        yval=val['Emotion'].values
 
         # Normalize texts
         def normalize(string_list):
@@ -184,10 +184,25 @@ def get_text_dataloaders():
         def emotion_to_label(emotion):
             if emotion=='neutral':
                 return 0
-            elif emotion=='positive':
+            elif emotion=='surprise':
                 return 1
-            elif emotion=='negative':
+            elif emotion=='fear':
                 return 2
+            elif emotion=='sadness':
+                return 3
+            elif emotion=='joy':
+                return 4
+            elif emotion=='disgust':
+                return 5
+            elif emotion=='anger':
+                return 6
+        # def emotion_to_label(emotion):
+        #     if emotion=='neutral':
+        #         return 0
+        #     elif emotion=='positive':
+        #         return 1
+        #     elif emotion=='negative':
+        #         return 2
 
         ytrain=[emotion_to_label(y) for y in ytrain]
         yval=[emotion_to_label(y) for y in yval]
