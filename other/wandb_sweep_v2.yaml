@@ -1,0 +1,64 @@
+method: bayes
+metric:
+  goal: minimize
+  name: Loss/Val
+parameters:
+  BATCH_SIZE:
+    values:
+    - 32
+    - 64
+    - 128
+    - 256
+  CACHE_FOLDER_PTH:
+    value: ../data/cache
+  CBS:
+    value: multimodal
+  DATA_FOLDER_PATH:
+    value: ../data
+  DATASET:
+    value: multimodal
+  DEV_AUDIO_FOLDER_PTH:
+    value: ../data/processed/MELD/dev_wavs
+  DEV_TEXT_FILE_PTH:
+    value: ../data/raw/MELD/dev/dev_sent_emo.csv
+  EPOCHS:
+    values: [20,40,60]
+  LOSS:
+    value: CrossEntropyLoss
+  LR:
+    distribution: log_uniform
+    max: -2
+    min: -10
+  MODEL:
+    values: [baseline_multimodal_model, baseline_multimodal_model2]
+  MODELS_FOLDER_PTH:
+    value: ../models
+  OPTIMIZER:
+    value: Adam
+  RUNS_FOLDER_PTH:
+    value: ../runs
+  SCHEDULER:
+    value: OneCycleLR
+  SCHEDULER_MAX_LR:
+    distribution: log_uniform
+    max: -1
+    min: -5
+  TEST_AUDIO_FOLDER_PTH:
+    value: ../data/processed/MELD/test_wavs
+  TEST_TEXT_FILE_PTH:
+    value: ../data/raw/MELD/test/test_sent_emo.csv
+  TEXT_MAX_LENGTH:
+    values: [128,256]
+  TRAIN_AUDIO_FOLDER_PTH:
+    value: ../data/processed/MELD/train_wavs
+  TRAIN_TEXT_FILE_PTH:
+    value: ../data/raw/MELD/train/train_sent_emo.csv
+  VOCAB_SIZE:
+    value: 10000
+  WEIGHT_DECAY:
+    distribution: log_uniform
+    max: -2
+    min: -5
+  WORKER_COUNT:
+    value: 0
+program: train.py
