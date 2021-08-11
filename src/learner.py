@@ -1,6 +1,12 @@
 import torch
 from utils.custom_enumerator import enumerateWithEstimate
 import wandb
+import copy
+import logging
+
+# Configure Logging
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 def noop(*a, **k):
     return None
@@ -16,6 +22,9 @@ class Learner:
         self.cbs=cbs
         self.opt_func=opt_func
         self.scheduler_func=scheduler_func
+
+        self.best_val_loss=float('inf')
+        self.best_model_state_dict=copy.deepcopy(self.model.state_dict())
 
         for cb in cbs: 
             cb.learner=self
@@ -65,7 +74,12 @@ class Learner:
         for cb in self.cbs:
             getattr(cb, cb_method_name, noop)()
 
-    def save(self,pth):
+    def save_best_model(self,pth):
+        torch.save(self.best_model_state_dict, pth)
+        log.info(f"Best Model Saved.")
+
+    def save_model(self,pth):
+        log.info(f"Model Saved.")
         torch.save(self.model.state_dict(), pth)
 
     def load(self,pth):

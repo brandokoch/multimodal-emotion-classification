@@ -5,11 +5,11 @@ from sklearn import metrics
 import logging
 import torch
 import wandb
+import copy
 
 # Configure Logging
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
-
 
 class MoveToGPUCallback():
     def before_batch(self):
@@ -68,7 +68,7 @@ class TrackResult():
 
         # Tracking train loss by batch
         if self.learner.model.training:
-            lr= self.learner.sched.get_last_lr() #should be before batch WARNING
+            lr= self.learner.sched.get_last_lr() # WARN: can also be added before batch
             wandb.log({'Loss/Train': loss, 'epoch': self.learner.epoch_idx, 'batch': self.learner.batch_idx})
             wandb.log({'Lr': lr[0], 'epoch': self.learner.epoch_idx, 'batch': self.learner.batch_idx})
 
@@ -104,7 +104,10 @@ class TrackResult():
             wandb.log({'Acc/Val': accuracy, 'epoch': self.learner.epoch_idx})
             wandb.log({'f1/Val': f1_score, 'epoch': self.learner.epoch_idx})
 
-
-
             # Tracking validation loss by epoch
             wandb.log({'Loss/Val': avg_loss, 'epoch': self.learner.epoch_idx})
+
+            if avg_loss<self.learner.best_val_loss:
+                log.info(f"Loss/Val high score, remembering state_dict.")
+                self.learner.best_val_loss = avg_loss
+                self.learner.best_model_state_dict=copy.deepcopy(self.learner.model.state_dict())

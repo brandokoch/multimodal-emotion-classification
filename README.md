@@ -1,11 +1,17 @@
-# multimodal-emotion-classification
-Multimodal emotion classification from the MELD dataset
+# Multimodal emotion classification
+Multimodal emotion classification from the MELD dataset. Developed at the PSI:ML7 Machine Learning Institute by Brando Koch and Nikola Andrić Mitrović under the supervision of Tamara Stanković from Microsoft.
+
+**Note: README is still being developed.**
 
 ## Setup 
 Using Miniconda/Anaconda:
 1. `cd path_to_repo`
 2. `conda env create`
 3. `conda activate multimodal-emotion-detection`
+
+## Multimodal Architecture
+
+![](images/multimodal_arch.png)
 
 ## MELD dataset 
 

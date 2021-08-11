@@ -115,6 +115,9 @@ class BaselineAudioModel_3(nn.Module):
         x= self.flatten(x)
         x = self.fc1(x)
 
+        # We dont apply softmax to output since nn.CrossEntropyLoss 
+        # combines LogSoftmax and NLLLoss
+
         return x
 
 if __name__=='__main__':

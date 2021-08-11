@@ -1,10 +1,12 @@
 import pandas as pd
 import tensorflow as tf
 import numpy as np
-import config
 import re
-import wandb
 import string
+import wandb
+import json
+import os
+from keras_preprocessing.text import tokenizer_from_json
 
 
 class GloveWeightsLoading:
@@ -24,28 +26,11 @@ class GloveWeightsLoading:
         glove_embedding = {key: val.values for key, val in glove.T.items()}
         #print(glove_embedding['cat'])
 
-        data = pd.read_csv(wandb.config.TRAIN_TEXT_FILE_PTH)
-        text = data['Utterance']
-        #print(text)
 
-        # Normalize texts
-        def normalize(string_list):
-            re_print = re.compile('[^%s]' % re.escape(string.printable))
-            normalized_string_list = []
-            for string_item in string_list:
-                normalized_string = ''.join([re_print.sub('', w) for w in string_item])
-                normalized_string_list.append(normalized_string)
-            return normalized_string_list
-
-        text = normalize(text)
-
-        # Preprocessing
-        tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=3000, filters='"#$%&()*+-/:;<=>@[\\]^_`{|}~\t\n')
-        tokenizer.fit_on_texts(text)
-
-        text = tokenizer.texts_to_sequences(text)
-        text = tf.keras.preprocessing.sequence.pad_sequences(text, maxlen=wandb.config.TEXT_MAX_LENGTH)
-        #print(f'Sample sentence tokenized: {text[0]}, shape: {text[0].shape}')
+        tok_pth=os.path.join(wandb.config.RUNS_FOLDER_PTH,wandb.config.RUN_NAME, wandb.config.MODEL+'_tok.json')
+        with open(tok_pth) as f:
+            data = json.load(f)
+            tokenizer = tokenizer_from_json(data)
 
         embedding_matrix = self.create_embedding_matrix(tokenizer.word_index, embedding_dict=glove_embedding, dimension=100)
         #print(embedding_matrix.shape)
@@ -60,6 +45,8 @@ import torch
 import torch.nn as nn
 
 if __name__=='__main__':
+    import config
+
     print('UNIT TEST GLOVE_LOADING:')
     gwl = GloveWeightsLoading()
     embedding_matrix = gwl()
